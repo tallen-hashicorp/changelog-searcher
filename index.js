@@ -1,8 +1,27 @@
 const axios = require('axios');
 const cliProgress = require('cli-progress');
+const args = require('args')
+const { Client } = require('@elastic/elasticsearch');
+const c = require('args');
 
-const ChangelogURL = process.argv[2]
+args
+  .option('url', 'the URL of the changelog')
+  .option('quit', "Do not print out changes")
+  .option('elastic', 'the URL of an elastic search server')
+
+const flags = args.parse(process.argv)
+
+const ChangelogURL = flags.url
+const elasticUrl = flags.elastic
 console.log(`processing: ${ChangelogURL}`)
+
+var client
+if (elasticUrl){
+    console.log(`Sending to elastic search: ${elasticUrl}`)
+    const client = new Client({
+        node: elasticUrl,
+    })
+}
 
 function lineMatchesVersion(line){
     if (!line){
@@ -48,6 +67,11 @@ function nextLineIfContinued(changelogArr,lineNumber){
 
 
 async function main(){
+    if (!ChangelogURL){
+        console.log("Please provide a URL, for example node index.js --url https://raw.githubusercontent.com/hashicorp/vault/main/CHANGELOG.md")
+        return
+    }
+
     const bar1 = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
 
     const changlogRSP = await axios.get(ChangelogURL)
@@ -59,9 +83,11 @@ async function main(){
     for (let lineNumber = 0; lineNumber < changelogArr.length; lineNumber++) {
         bar1.update(lineNumber+1);
         const matchVersion = lineMatchesVersion(changelogArr[lineNumber])
+        
         if (matchVersion){
             const version = matchVersion[1]
             var foundNextVersion = false
+        
             while (!foundNextVersion){
                 lineNumber++
                 bar1.update(lineNumber+1);
@@ -74,15 +100,20 @@ async function main(){
 
                 const matchType = lineMatchesType(changelogArr[lineNumber])
                 var foundNextType = false
+
                 while(!foundNextType){
                     var type
+
                     if (lineMatchesType(changelogArr[lineNumber])){
                         type = lineMatchesType(changelogArr[lineNumber])[1]
                     }
+
                     if (isLineAChange(changelogArr[lineNumber])){
                         var change = changelogArr[lineNumber]
                         change = change + nextLineIfContinued(changelogArr,lineNumber)
-                        console.log(`${version} - ${type} - ${change}`)
+                        if (!flags.quit){
+                            console.log(`${version} - ${type} - ${change}`)
+                        }
                     }
 
 
