@@ -28,6 +28,24 @@ function isLineAChange(line){
     return line.match(/\*.*/)
 }
 
+function nextLineIfContinued(changelogArr,lineNumber){
+    var foundNextChange = false
+    var change = " "
+    while(!foundNextChange){
+        lineNumber++
+        var currentLine = changelogArr[lineNumber]
+        if (isLineAChange(currentLine) || lineMatchesType(currentLine) || lineMatchesVersion(currentLine) || lineNumber>changelogArr.length){
+            foundNextChange = true
+        }else{
+            if (!currentLine){
+                currentLine = " "
+            }
+            change = change + currentLine.trim()
+        }
+    }
+    return change
+}
+
 
 async function main(){
     const bar1 = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
@@ -62,7 +80,9 @@ async function main(){
                         type = lineMatchesType(changelogArr[lineNumber])[1]
                     }
                     if (isLineAChange(changelogArr[lineNumber])){
-                        console.log(`${version} - ${type} - ${changelogArr[lineNumber]}`)
+                        var change = changelogArr[lineNumber]
+                        change = change + nextLineIfContinued(changelogArr,lineNumber)
+                        console.log(`${version} - ${type} - ${change}`)
                     }
 
 
